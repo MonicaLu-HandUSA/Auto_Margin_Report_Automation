@@ -1,0 +1,17 @@
+# NetSuite Configuration
+# Copy this file to .env and fill in your actual credentials
+
+# NetSuite Username (default: bill.li@hand-usa.com)
+NETSUITE_USERNAME=bill.li@hand-usa.com
+
+# NetSuite Password (required)
+NETSUITE_PASSWORD=your_actual_password_here
+
+# NetSuite Security Question Answer (required)
+NETSUITE_SECURITY_QUESTION=your_security_answer_here
+
+# Optional: Override default fiscal year start month (1-12, default: 1 for January)
+# FISCAL_YEAR_START_MONTH=1
+
+# Optional: Override default log level (DEBUG, INFO, WARNING, ERROR)
+# LOG_LEVEL=INFO
