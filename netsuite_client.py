@@ -17,7 +17,6 @@ class NetSuiteClient:
         self.deploy_id = Config.NETSUITE_DEPLOY_ID
         self.username = Config.NETSUITE_USERNAME
         self.password = Config.NETSUITE_PASSWORD
-        self.security_question = Config.NETSUITE_SECURITY_QUESTION
         
         # Initialize encryption key for sensitive data
         self._init_encryption()
@@ -39,8 +38,6 @@ class NetSuiteClient:
         """Validate NetSuite configuration"""
         if not self.password:
             raise ValueError("NetSuite password is required")
-        if not self.security_question:
-            raise ValueError("NetSuite security question is required")
         
         logger.info("NetSuite configuration validated successfully")
     
@@ -83,7 +80,6 @@ class NetSuiteClient:
             auth_data = {
                 'username': self.username,
                 'password': self._decrypt_sensitive_data(self.password),
-                'security_question': self._decrypt_sensitive_data(self.security_question)
             }
             
             # Log authentication attempt (without sensitive data)

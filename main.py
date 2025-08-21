@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Main application for Auto Margin Report Automation
 FR-1: Get Processing date from Email
