@@ -63,14 +63,14 @@ class DateParser:
     
     def _convert_to_fiscal_format(self, year: int, month: int) -> Dict[str, str]:
         """
-        Convert year and month to NetSuite fiscal format
+        Convert year and month to NetSuite fiscal format for dropdown selection
         
         Args:
             year: Year (e.g., 2025)
             month: Month (1-12)
             
         Returns:
-            Dictionary with fiscal parameters
+            Dictionary with fiscal parameters formatted for NetSuite dropdowns
         """
         try:
             # Validate inputs
@@ -88,6 +88,9 @@ class DateParser:
             # Get month abbreviation
             month_abbr = self._get_month_abbreviation(month)
             
+            # Format for NetSuite dropdown (FY 2025 : Q3 2025 : Aug 2025)
+            netsuite_format = f"FY {fiscal_year} : Q{quarter} {fiscal_year} : {month_abbr} {fiscal_year}"
+            
             result = {
                 'fiscal_year': f"FY {fiscal_year}",
                 'quarter': f"Q{quarter} {fiscal_year}",
@@ -96,7 +99,8 @@ class DateParser:
                 'quarter_num': str(quarter),
                 'month_num': f"{month:02d}",
                 'original_year': str(year),
-                'original_month': str(month)
+                'original_month': str(month),
+                'netsuite_dropdown_value': netsuite_format
             }
             
             logger.info(f"Successfully converted {month:02d}/{year} to fiscal format: {result}")
@@ -114,15 +118,17 @@ class DateParser:
             return year - 1
     
     def _calculate_quarter(self, month: int) -> int:
-        """Calculate quarter based on month"""
-        if month <= 3:
-            return 1
-        elif month <= 6:
-            return 2
-        elif month <= 9:
-            return 3
-        else:
-            return 4
+        """
+        Calculate quarter based on month and fiscal year start
+        
+        Args:
+            month: Month (1-12)
+            
+        Returns:
+            Quarter number (1-4)
+        """
+        months_since_fiscal_start = (month - self.fiscal_year_start_month) % 12
+        return (months_since_fiscal_start // 3) + 1
     
     def _get_month_abbreviation(self, month: int) -> str:
         """Get month abbreviation (e.g., 1 -> Jan)"""
@@ -132,36 +138,53 @@ class DateParser:
         ]
         return month_names[month - 1]
     
-    def parse_email_time_range(self, email_body: str) -> Optional[Dict[str, Dict[str, str]]]:
+    def parse_email_time_range(self, email_body: str) -> Optional[Dict]:
         """
-        Parse time range from email body (e.g., "08/2024 - 08/2025")
+        Parse time range from email body with fiscal year consideration
         
         Args:
-            email_body: Email body text
+            email_body: Email body text containing fiscal year start and date range
             
         Returns:
-            Dictionary with start and end date fiscal parameters
+            Dictionary with start and end date information or None if parsing fails
         """
         try:
-            # Look for time range pattern
-            time_range_pattern = r'(\d{1,2}/\d{4})\s*-\s*(\d{1,2}/\d{4})'
-            match = re.search(time_range_pattern, email_body)
+            # Extract fiscal year start month
+            fiscal_start_match = re.search(r'Fiscal Year Starts From Which Month: (\d+)', email_body)
+            if not fiscal_start_match:
+                logger.error("Could not find fiscal year start month in email")
+                return None
             
-            if match:
-                start_date = match.group(1)
-                end_date = match.group(2)
-                
-                start_params = self.parse_date_string(start_date)
-                end_params = self.parse_date_string(end_date)
-                
-                if start_params and end_params:
-                    return {
-                        'start_date': start_params,
-                        'end_date': end_params
-                    }
+            # Extract period information
+            from_year = re.search(r'Period From\(Year\): (\d+)', email_body)
+            from_month = re.search(r'Period From\(Month\): (\d+)', email_body)
+            to_year = re.search(r'Period To\(Year\): (\d+)', email_body)
+            to_month = re.search(r'Period To\(Month\): (\d+)', email_body)
             
-            logger.warning(f"No valid time range found in email body: {email_body}")
-            return None
+            if not all([from_year, from_month, to_year, to_month]):
+                logger.error("Could not find all required date components in email")
+                return None
+            
+            # Update fiscal year start month
+            self.fiscal_year_start_month = int(fiscal_start_match.group(1))
+            
+            # Process start date
+            start_date = self._convert_to_fiscal_format(
+                int(from_year.group(1)),
+                int(from_month.group(1))
+            )
+            
+            # Process end date
+            end_date = self._convert_to_fiscal_format(
+                int(to_year.group(1)),
+                int(to_month.group(1))
+            )
+            
+            return {
+                'start_date': start_date,
+                'end_date': end_date,
+                'fiscal_year_start': self.fiscal_year_start_month
+            }
             
         except Exception as e:
             logger.error(f"Failed to parse email time range: {str(e)}")

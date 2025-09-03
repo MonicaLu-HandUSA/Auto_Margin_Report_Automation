@@ -26,36 +26,65 @@ class EmailProcessor:
             Dictionary with extracted information or None if processing fails
         """
         try:
-            # Validate email subject
-            if not self._validate_subject(email_subject):
-                logger.error(f"Invalid email subject: {email_subject}")
+            # Extract date-related information using regex
+            fiscal_start_match = re.search(r'Fiscal Year Starts From Which Month: (\d+)', email_body)
+            period_from_year_match = re.search(r'Period From\(Year\): (\d+)', email_body)
+            period_from_month_match = re.search(r'Period From\(Month\): (\d+)', email_body)
+            period_to_year_match = re.search(r'Period To\(Year\): (\d+)', email_body)
+            period_to_month_match = re.search(r'Period To\(Month\): (\d+)', email_body)
+
+            # List to collect missing or invalid fields
+            invalid_fields = []
+
+            def extract_int(match, field_name):
+                if match:
+                    try:
+                        return int(match.group(1))
+                    except ValueError:
+                        invalid_fields.append(field_name)
+                        return None
+                else:
+                    invalid_fields.append(field_name)
+                    return None
+
+            # Extract and validate each value
+            fiscal_start = extract_int(fiscal_start_match, 'fiscal_start')
+            period_from_year = extract_int(period_from_year_match, 'period_from_year')
+            period_from_month = extract_int(period_from_month_match, 'period_from_month')
+            period_to_year = extract_int(period_to_year_match, 'period_to_year')
+            period_to_month = extract_int(period_to_month_match, 'period_to_month')
+
+            if invalid_fields:
+                logger.error(f"Missing or invalid fields in email body: {', '.join(invalid_fields)}")
                 return None
-            
-            # Extract time range from email body
-            time_range = self.date_parser.parse_email_time_range(email_body)
-            if not time_range:
-                logger.error("Failed to extract time range from email body")
-                return None
-            
-            # Extract individual dates for processing
-            start_date = time_range['start_date']
-            end_date = time_range['end_date']
-            
+
+            # Format dates for NetSuite
+            start_date = {
+                'fiscal_year': str(period_from_year),
+                'month': str(period_from_month).zfill(2),
+                'quarter': self._calculate_quarter(period_from_month, fiscal_start)
+            }
+
+            end_date = {
+                'fiscal_year': str(period_to_year),
+                'month': str(period_to_month).zfill(2),
+                'quarter': self._calculate_quarter(period_to_month, fiscal_start)
+            }
+
             # Create result with all necessary information
             result = {
                 'email_subject': email_subject,
-                'time_range': time_range,
                 'start_date': start_date,
                 'end_date': end_date,
                 'fiscal_summary': self._create_fiscal_summary(start_date, end_date),
                 'processing_status': 'success'
             }
-            
+
             logger.info(f"Successfully processed email: {result['fiscal_summary']}")
             return result
-            
+
         except Exception as e:
-            logger.error(f"Failed to process email: {str(e)}")
+            logger.error(f"Unexpected error while processing email: {str(e)}")
             return None
     
     def _validate_subject(self, subject: str) -> bool:

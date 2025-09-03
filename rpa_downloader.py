@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.webdriver.support.ui import Select
 from urllib.parse import urlencode
 
 from config import Config
@@ -143,6 +144,164 @@ class NetSuiteRPADownloader:
 			wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 		except TimeoutException:
 			pass
+
+	def _handle_security_questions(self):
+		"""Handle NetSuite security questions during login."""
+		try:
+			# Check if we're on the security question page
+			def on_security_page() -> bool:
+				if "securityquestions" in (self.driver.current_url or ""):
+					return True
+				try:
+					self.driver.find_element(By.XPATH, "//input[@type='text' or @type='password']")
+					self.driver.find_element(By.XPATH, "//button[contains(., 'Submit')] | //input[@type='submit']")
+					return True
+				except Exception:
+					return False
+
+			# Wait for security page
+			try:
+				WebDriverWait(self.driver, 5).until(lambda d: on_security_page())
+			except Exception:
+				return  # No security question present
+
+			# Get page text and find matching question
+			page_text = self.driver.find_element(By.TAG_NAME, "body").text.strip()
+			matched_answer = None
+			matched_question = None
+
+			for question, answer in Config.SECURITY_QA.items():
+				if question.lower() in page_text.lower():
+					matched_answer = answer
+					matched_question = question
+					print(f"Matched security question: {question}")
+					break
+
+			if not matched_answer:
+				print(f"Security question not recognized. Page text: {page_text[:80]}...")
+				return
+
+			# Find and fill answer input
+			inputs = self.driver.find_elements(By.XPATH, "//input[@type='text' or @type='password']")
+			target = next((el for el in inputs if el.is_displayed() and el.is_enabled()), None)
+			
+			if not target:
+				print("Could not locate answer input field")
+				return
+
+			target.clear()
+			target.send_keys(matched_answer)
+
+			# Submit answer
+			try:
+				submit = self.driver.find_element(By.XPATH, "//button[contains(., 'Submit')] | //input[@type='submit']")
+				submit.click()
+			except Exception as e:
+				print(f"Could not find submit button: {str(e)}")
+				return
+
+			# Wait for redirect
+			try:
+				WebDriverWait(self.driver, 30).until(
+					lambda d: "securityquestions" not in (d.current_url or "")
+				)
+			except Exception:
+				pass
+
+			print("Security question answered successfully")
+
+		except Exception as e:
+			print(f"Error handling security questions: {str(e)}")
+			self.driver.save_screenshot("security_question_error.png")
+			raise
+
+	def _handle_download_page(self, start_date: str, end_date: str):
+		"""
+		Handle the margin report download page by setting dates and triggering download
+		
+		Args:
+			start_date: Date string in format "FY YYYY : QX YYYY : MMM YYYY"
+			end_date: Date string in format "FY YYYY : QX YYYY : MMM YYYY"
+		"""
+		try:
+			# Wait for subsidiary dropdown and select Baby Trend
+			subsidiary_dropdown = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'subsidiary')]"))
+			)
+			Select(subsidiary_dropdown).select_by_visible_text("Baby Trend")
+
+			# Set Period From date
+			period_from = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodfrom')]"))
+			)
+			Select(period_from).select_by_visible_text(start_date)
+
+			# Set Period To date
+			period_to = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodto')]"))
+			)
+			Select(period_to).select_by_visible_text(end_date)
+
+			# Click Download button
+			download_button = WebDriverWait(self.driver, 10).until(
+				EC.element_to_be_clickable((By.XPATH, "//input[@value='Download'] | //button[contains(text(), 'Download')]"))
+			)
+			download_button.click()
+
+			# Wait for download to complete
+			time.sleep(5)  # Adjust timeout as needed
+			
+			print(f"Successfully initiated download for period {start_date} to {end_date}")
+
+		except Exception as e:
+			print(f"Error handling download page: {str(e)}")
+			self.driver.save_screenshot("download_page_error.png")
+			raise
+
+		return True
+
+	def _select_dates_and_download(self, start_date: Dict[str, str], end_date: Dict[str, str]):
+		"""
+		Select dates from NetSuite dropdowns and trigger download
+		
+		Args:
+			start_date: Dictionary containing netsuite_dropdown_value for period from
+			end_date: Dictionary containing netsuite_dropdown_value for period to
+		"""
+		
+		try:
+			# Wait for subsidiary dropdown and select Baby Trend
+			subsidiary_dropdown = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'subsidiary')]"))
+			)
+			Select(subsidiary_dropdown).select_by_visible_text("Baby Trend")
+
+			# Select Period From
+			period_from = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodfrom')]"))
+			)
+			Select(period_from).select_by_visible_text(start_date['netsuite_dropdown_value'])
+
+			# Select Period To
+			period_to = WebDriverWait(self.driver, 10).until(
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodto')]"))
+			)
+			Select(period_to).select_by_visible_text(end_date['netsuite_dropdown_value'])
+
+			# Click Download button
+			download_button = WebDriverWait(self.driver, 10).until(
+				EC.element_to_be_clickable((By.XPATH, "//input[@value='Download'] | //button[contains(text(), 'Download')]"))
+			)
+			download_button.click()
+
+			# Wait for download to complete
+			time.sleep(5)  # Adjust timeout as needed 
+			return True
+		
+		except Exception as e:
+			print(f"Error selecting dates and downloading: {str(e)}")
+			self.driver.save_screenshot("download_error.png")
+			return False
 
 	def download_quarter(self, saved_search_id: str, year: int, quarter: int, start: date, end: date) -> Optional[str]:
 		if not self.driver:
