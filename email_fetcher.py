@@ -2,7 +2,7 @@ import imaplib
 import email
 from email.header import decode_header
 
-def fetch_latest_email(username, password, imap_server='imap.outlook.com', folder='INBOX'):
+def fetch_latest_email(username, password, imap_server='imap.com', folder='INBOX'):
     # Connect and login
     mail = imaplib.IMAP4_SSL(imap_server)
     mail.login(username, password)

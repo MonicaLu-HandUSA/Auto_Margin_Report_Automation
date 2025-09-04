@@ -132,38 +132,36 @@ class MarginReportAutomation:
             logger.error(f"Failed to get system status: {str(e)}")
             return {'system_status': 'error', 'error': str(e)}
 
-
-
 def main():
     """Main function for command-line and testing usage"""
     try:
-        setup_logging()
+        # setup_logging()
 
-        email_data = fetch_latest_email(Config.EMAIL_USER, Config.EMAIL_PASS)
-        if email_data:
-            automation = MarginReportAutomation()
+        # email_data = fetch_latest_email(Config.EMAIL_USER, Config.EMAIL_PASS)
+        # if email_data:
+        automation = MarginReportAutomation()
 
-        print("=== Margin Report Automation System ===")
-        print("FR-1: Get Processing date from Email")
-        print()
+        # print("=== Margin Report Automation System ===")
+        # print("FR-1: Get Processing date from Email")
+        # print()
 
-        # System status
-        status = automation.get_system_status()
-        print(f"System Status: {status['system_status']}")
-        print(f"NetSuite URL: {status['configuration']['netsuite_url']}")
-        print()
+        # # System status
+        # status = automation.get_system_status()
+        # print(f"System Status: {status['system_status']}")
+        # print(f"NetSuite URL: {status['configuration']['netsuite_url']}")
+        # print()
 
-        # Test: Single date processing
-        test_date = "2025/08"
-        print(f"Testing single date processing: {test_date}")
-        result = automation.process_single_date(test_date)
+        # # Test: Single date processing
+        # test_date = "2025/08"
+        # print(f"Testing single date processing: {test_date}")
+        # result = automation.process_single_date(test_date)
 
-        if result:
-            print("✓ Date processed successfully")
-            print(f"  Fiscal Summary: {result['fiscal_summary']}")
-            print(f"  NetSuite URL: {result['netsuite_query']['query_url']}")
-        else:
-            print("✗ Date processing failed")
+        # if result:
+        #     print("✓ Date processed successfully")
+        #     print(f"  Fiscal Summary: {result['fiscal_summary']}")
+        #     print(f"  NetSuite URL: {result['netsuite_query']['query_url']}")
+        # else:
+        #     print("✗ Date processing failed")
 
         print()
 

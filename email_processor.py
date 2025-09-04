@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Optional, Tuple
 from date_parser import DateParser
 from config import Config
+from quarter_utils import QuarterCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,7 @@ class EmailProcessor:
     def __init__(self):
         """Initialize EmailProcessor with date parser"""
         self.date_parser = DateParser(Config.FISCAL_YEAR_START_MONTH)
+        self.quarter_calculator = QuarterCalculator(Config.FISCAL_YEAR_START_MONTH)
         self.subject_pattern = Config.EMAIL_SUBJECT_PATTERN
     
     def process_email(self, email_subject: str, email_body: str) -> Optional[Dict]:
@@ -62,13 +64,13 @@ class EmailProcessor:
             start_date = {
                 'fiscal_year': str(period_from_year),
                 'month': str(period_from_month).zfill(2),
-                'quarter': self._calculate_quarter(period_from_month, fiscal_start)
+                'quarter': self.quarter_calculator.get_quarter(period_from_month)
             }
 
             end_date = {
                 'fiscal_year': str(period_to_year),
                 'month': str(period_to_month).zfill(2),
-                'quarter': self._calculate_quarter(period_to_month, fiscal_start)
+                'quarter': self.quarter_calculator.get_quarter(period_to_month)
             }
 
             # Create result with all necessary information

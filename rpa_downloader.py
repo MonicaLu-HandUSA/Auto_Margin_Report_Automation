@@ -232,13 +232,13 @@ class NetSuiteRPADownloader:
 
 			# Set Period From date
 			period_from = WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodfrom')]"))
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'period from')]"))
 			)
 			Select(period_from).select_by_visible_text(start_date)
 
 			# Set Period To date
 			period_to = WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodto')]"))
+				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'period to')]"))
 			)
 			Select(period_to).select_by_visible_text(end_date)
 
@@ -260,17 +260,13 @@ class NetSuiteRPADownloader:
 
 		return True
 
-	def _select_dates_and_download(self, start_date: Dict[str, str], end_date: Dict[str, str]):
+	def _select_dates_and_download(self, start_date: dict, end_date: dict):
 		"""
-		Select dates from NetSuite dropdowns and trigger download
-		
-		Args:
-			start_date: Dictionary containing netsuite_dropdown_value for period from
-			end_date: Dictionary containing netsuite_dropdown_value for period to
+		Select dates from NetSuite dropdowns and trigger download.
+		start_date/end_date dicts must contain 'netsuite_dropdown_value'.
 		"""
-		
 		try:
-			# Wait for subsidiary dropdown and select Baby Trend
+			# Select subsidiary
 			subsidiary_dropdown = WebDriverWait(self.driver, 10).until(
 				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'subsidiary')]"))
 			)
@@ -288,18 +284,18 @@ class NetSuiteRPADownloader:
 			)
 			Select(period_to).select_by_visible_text(end_date['netsuite_dropdown_value'])
 
-			# Click Download button
+			# Click Download
 			download_button = WebDriverWait(self.driver, 10).until(
 				EC.element_to_be_clickable((By.XPATH, "//input[@value='Download'] | //button[contains(text(), 'Download')]"))
 			)
 			download_button.click()
 
-			# Wait for download to complete
-			time.sleep(5)  # Adjust timeout as needed 
+			time.sleep(5)  # wait for download
+			print(f"✓ Successfully initiated download for {start_date['netsuite_dropdown_value']} → {end_date['netsuite_dropdown_value']}")
 			return True
-		
+
 		except Exception as e:
-			print(f"Error selecting dates and downloading: {str(e)}")
+			print(f"✗ Error selecting dates and downloading: {str(e)}")
 			self.driver.save_screenshot("download_error.png")
 			return False
 
@@ -339,3 +335,22 @@ class NetSuiteRPADownloader:
 		if self.driver:
 			self.driver.quit()
 			self.driver = None
+
+	def test_security_questions(self):
+		"""Test security question handling by printing the current page source"""
+		try:
+			if not self.driver:
+				logger.error("Driver not initialized")
+				return False
+				
+			# Print current URL and page source
+			print("\nCurrent URL:", self.driver.current_url)
+			print("\nPage Source:")
+			print(self.driver.page_source)
+			
+			# Take screenshot
+			self.driver.save_screenshot("security_page.png")
+			return True
+		except Exception as e:
+			print(f"Error testing security questions: {str(e)}")
+			return False

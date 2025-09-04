@@ -8,7 +8,7 @@ class Config:
 	"""Configuration class for NetSuite and application settings"""
 	
 	# NetSuite Configuration
-	NETSUITE_URL = "https://837809-sb1.app.netsuite.com/app/site/hosting/scriptlet.nl"
+	NETSUITE_URL = "https://837809-sb1.app.netsuite.com/app/site/hosting/scriptlet.nl?script=1574&deploy=1&whence="
 	NETSUITE_SCRIPT_ID = "1574"
 	NETSUITE_DEPLOY_ID = "1"
 	
