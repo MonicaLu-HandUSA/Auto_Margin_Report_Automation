@@ -266,27 +266,45 @@ class NetSuiteRPADownloader:
 		start_date/end_date dicts must contain 'netsuite_dropdown_value'.
 		"""
 		try:
+			# Step 1: Verify we are on the "Item Margin By Customer" page
+			def on_download_page() -> bool:
+				try:
+					body_text = self.driver.find_element(By.TAG_NAME, "body").text
+					return "Item Margin By Customer" in body_text
+				except Exception:
+					return False
+
+			WebDriverWait(self.driver, 10).until(lambda d: on_download_page())
+
+			# Step 2: Find all <select> elements
+			selects = self.driver.find_elements(By.TAG_NAME, "select")
+			if not selects or len(selects) < 3:
+				raise Exception(f"Expected at least 3 dropdowns, found {len(selects)}")
+
+			# Based on your screenshot, the order is:
+			# [0] = Subsidiary
+			# [1] = Period From
+			# [2] = Period To
+			subsidiary_dropdown = selects[0]
+			period_from = selects[1]
+			period_to = selects[2]
+
 			# Select subsidiary
-			subsidiary_dropdown = WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'subsidiary')]"))
-			)
 			Select(subsidiary_dropdown).select_by_visible_text("Baby Trend")
 
-			# Select Period From
-			period_from = WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodfrom')]"))
-			)
-			Select(period_from).select_by_visible_text(start_date['netsuite_dropdown_value'])
+			# Print available options for debugging
+			for opt in Select(period_from).options:
+				print("Period From option:", opt.text)
+			for opt in Select(period_to).options:
+				print("Period To option:", opt.text)
 
-			# Select Period To
-			period_to = WebDriverWait(self.driver, 10).until(
-				EC.presence_of_element_located((By.XPATH, "//select[contains(@id, 'periodto')]"))
-			)
+			# Select dates
+			Select(period_from).select_by_visible_text(start_date['netsuite_dropdown_value'])
 			Select(period_to).select_by_visible_text(end_date['netsuite_dropdown_value'])
 
-			# Click Download
+			# Step 3: Click the download button
 			download_button = WebDriverWait(self.driver, 10).until(
-				EC.element_to_be_clickable((By.XPATH, "//input[@value='Download'] | //button[contains(text(), 'Download')]"))
+				EC.element_to_be_clickable((By.XPATH, "//input[@value='Download'] | //button[contains(., 'Download')]"))
 			)
 			download_button.click()
 
@@ -298,38 +316,6 @@ class NetSuiteRPADownloader:
 			print(f"✗ Error selecting dates and downloading: {str(e)}")
 			self.driver.save_screenshot("download_error.png")
 			return False
-
-	def download_quarter(self, saved_search_id: str, year: int, quarter: int, start: date, end: date) -> Optional[str]:
-		if not self.driver:
-			self._init_driver()
-		d = self.driver
-		url = self._build_quarter_url(saved_search_id, start, end)
-		d.get(url)
-		# If redirected to login, perform login then navigate back to the target URL
-		if self._is_login_page():
-			self._attempt_login()
-			# Re-open the target after login
-			d.get(url)
-		wait = WebDriverWait(d, 30)
-		# Trigger export; selectors must match your scriptlet page
-		try:
-			export_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button#export, a#export")))
-			export_button.click()
-			# Wait for file to appear in download dir
-			filename = f"margin_{year}_Q{quarter}.xls"
-			outfile = os.path.join(DOWNLOAD_DIR, filename)
-			deadline = time.time() + 60
-			while time.time() < deadline:
-				for f in os.listdir(DOWNLOAD_DIR):
-					if f.lower().endswith((".xls", ".xlsx")):
-						candidate = os.path.join(DOWNLOAD_DIR, f)
-						# rename to standard name
-						os.replace(candidate, outfile)
-						return outfile
-				time.sleep(1)
-			raise TimeoutException("Export did not complete in time")
-		except Exception as e:
-			return None
 
 	def close(self):
 		if self.driver:
